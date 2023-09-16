@@ -49,5 +49,19 @@
         app:layout_constraintEnd_toEndOf="parent"
         app:layout_constraintTop_toBottomOf="@+id/ActivatedButton" />
 
+    <Button
+        android:id="@+id/readNFCbutton"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:layout_marginStart="151dp"
+        android:layout_marginTop="92dp"
+        android:layout_marginEnd="166dp"
+        android:layout_marginBottom="159dp"
+        android:text="@string/readNFCbutton"
+        app:layout_constraintBottom_toBottomOf="parent"
+        app:layout_constraintEnd_toEndOf="parent"
+        app:layout_constraintStart_toStartOf="parent"
+        app:layout_constraintTop_toBottomOf="@+id/nfc_contents" />
+
 
 </androidx.constraintlayout.widget.ConstraintLayout>

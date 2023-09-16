@@ -1,3 +1,4 @@
 <resources>
     <string name="app_name">TestNFCApp</string>
+    <string name="readNFCbutton">Read NFC</string>
 </resources>
