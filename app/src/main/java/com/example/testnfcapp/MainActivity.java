@@ -79,10 +79,16 @@ public class MainActivity extends AppCompatActivity {
             finish();
         }
         readfromIntent(getIntent());
-        pendingIntent = PendingIntent.getActivity(this,0,new Intent(this, getClass()).addFlags(Intent.FLAG_ACTIVITY_SINGLE_TOP),PendingIntent.FLAG_IMMUTABLE);
-        IntentFilter tagDetected=new IntentFilter(NfcAdapter.ACTION_TAG_DISCOVERED);
-        tagDetected.addCategory(Intent.CATEGORY_DEFAULT);
-        writingTagFilters=new IntentFilter[] {tagDetected};
+        pendingIntent = PendingIntent.getActivity(this,0,new Intent(this, getClass()).addFlags(Intent.FLAG_ACTIVITY_SINGLE_TOP),PendingIntent.FLAG_MUTABLE);
+        IntentFilter tagDetected=new IntentFilter(NfcAdapter.ACTION_NDEF_DISCOVERED);
+        try{
+            tagDetected.addDataType("*/*");
+
+        }
+        catch (IntentFilter.MalformedMimeTypeException e){
+            throw new RuntimeException("fail", e);
+        }
+        writingTagFilters=new IntentFilter[] {tagDetected, };
     }
 
     private void readfromIntent(Intent intent) {
@@ -151,9 +157,8 @@ public class MainActivity extends AppCompatActivity {
     @Override
     protected void onNewIntent(Intent intent) {
         super.onNewIntent(intent);
-        setIntent(intent);
         readfromIntent(intent);
-        if (NfcAdapter.ACTION_TAG_DISCOVERED.equals(intent.getAction())) {
+        if (NfcAdapter.ACTION_NDEF_DISCOVERED.equals(intent.getAction())) {
             myTag=intent.getParcelableExtra(NfcAdapter.EXTRA_TAG);
         }
     }
