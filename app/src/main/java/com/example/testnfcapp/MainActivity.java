@@ -23,6 +23,7 @@ import android.widget.Toast;
 import java.io.IOException;
 import java.io.UnsupportedEncodingException;
 import java.nio.charset.Charset;
+import java.nio.charset.StandardCharsets;
 
 public class MainActivity extends AppCompatActivity {
 
@@ -53,31 +54,22 @@ public class MainActivity extends AppCompatActivity {
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
         setContentView(R.layout.activity_main);
-        edit_message=(TextView) findViewById(R.id.edit_message);
-        nfc_contents=(TextView) findViewById(R.id.nfc_contents);
+        edit_message= findViewById(R.id.edit_message);
+        nfc_contents= findViewById(R.id.nfc_contents);
         ActivateButton= findViewById(R.id.ActivatedButton);
         context =this;
 
         ActivateButton.setOnClickListener(v -> {
-            try {
-                if (myTag==null) {
-                    Toast.makeText(context, Error_Detected, Toast.LENGTH_LONG).show();
-                }
-                else {
-                    write("PlainText|" + edit_message.getText().toString(), myTag);
-                    Toast.makeText(context, Write_Success, Toast.LENGTH_LONG).show();
-                }
-            }
-            catch (IOException | FormatException e){
-                Toast.makeText(context, Write_Error, Toast.LENGTH_LONG).show();
-                e.printStackTrace();
-            }
+            isWriting = true;
+            isReading = false;
+            Toast.makeText(context,"Waiting for tag", Toast.LENGTH_LONG).show();
         });
 
         Button readButton = findViewById(R.id.readNFCbutton);
 
         readButton.setOnClickListener(v -> {
             isReading = true;
+            isWriting = false;
             Toast.makeText(context,"Waiting for tag", Toast.LENGTH_LONG).show();
         });
 
@@ -89,11 +81,13 @@ public class MainActivity extends AppCompatActivity {
             Toast.makeText(this,"This device does not support NFC", Toast.LENGTH_SHORT).show();
             finish();
         }
-        //readfromIntent(getIntent());
         pendingIntent = PendingIntent.getActivity(this,0,new Intent(this, getClass()).addFlags(Intent.FLAG_ACTIVITY_SINGLE_TOP),PendingIntent.FLAG_MUTABLE);
         IntentFilter tagDetected=new IntentFilter(NfcAdapter.ACTION_NDEF_DISCOVERED);
+        IntentFilter emptyTagDetected=new IntentFilter(NfcAdapter.ACTION_TECH_DISCOVERED);
+
         try{
             tagDetected.addDataType("*/*");
+            emptyTagDetected.addDataType("*/*");
 
         }
         catch (IntentFilter.MalformedMimeTypeException e){
@@ -102,13 +96,20 @@ public class MainActivity extends AppCompatActivity {
         writingTagFilters=new IntentFilter[] {tagDetected, };
     }
 
-    private void write(String text, Tag tag) throws IOException, FormatException {
-        NdefRecord[] records={createRecord(text)};
-        NdefMessage message=new NdefMessage(records);
-        Ndef ndef=Ndef.get(tag);
-        ndef.connect();
-        ndef.writeNdefMessage(message);
-        ndef.close();
+    private void write(String text, Tag tag){
+        MifareUltralight ultralight = MifareUltralight.get(tag);
+        try {
+            ultralight.connect();
+            ultralight.writePage(7, "mnop".getBytes(StandardCharsets.US_ASCII));
+        } catch (IOException e) {
+            Log.e(TAG, "IOException while writing MifareUltralight...", e);
+        } finally {
+            try {
+                ultralight.close();
+            } catch (IOException e) {
+                Log.e(TAG, "IOException while closing MifareUltralight...", e);
+            }
+        }
     }
 
     private String read(Tag tag) {
@@ -116,7 +117,7 @@ public class MainActivity extends AppCompatActivity {
         try {
             mifare.connect();
             byte[] payload = mifare.readPages(4);
-            return new String(payload, Charset.forName("US-ASCII"));
+            return new String(payload, StandardCharsets.US_ASCII);
         } catch (IOException e) {
             Log.e(TAG, "IOException while reading MifareUltralight message...", e);
         } finally {
@@ -133,74 +134,24 @@ public class MainActivity extends AppCompatActivity {
     }
 
 
-
-    private void readfromIntent(Intent intent) {
-        String action=intent.getAction();
-        if (NfcAdapter.ACTION_TAG_DISCOVERED.equals(action)
-            || NfcAdapter.ACTION_TECH_DISCOVERED.equals(action)
-            || NfcAdapter.ACTION_NDEF_DISCOVERED.equals(action)) {
-            Parcelable[] rawMsgs=intent.getParcelableArrayExtra(NfcAdapter.EXTRA_NDEF_MESSAGES);
-            NdefMessage[] msgs=null;
-            if (rawMsgs!=null) {
-                msgs=new NdefMessage[rawMsgs.length];
-                for (int i=0; i<rawMsgs.length; i++) {
-                    msgs[i]=(NdefMessage) rawMsgs[i];
-                }
-            }
-            buildTagViews(msgs);
-        }
-    }
-
-    private void buildTagViews(NdefMessage[] msgs) {
-        if (msgs==null || msgs.length==0) return;
-        String text="";
-        // String tagId=new String(msgs[0].getRecords()[0].getType());
-
-        byte[] payload=msgs[0].getRecords()[0].getPayload();
-        String textEncoding=((payload[0 & 128]) ==0) ? "UTF-8":"UTF-16";
-        int languageCodeLength=payload[0] & 0063;
-        // String languageCode=new String(payload, 1, languageCodeLength, "US-ASCII");
-
-        try {
-            text=new String(payload, languageCodeLength+1, payload.length-languageCodeLength-1, textEncoding);
-        }
-        catch (UnsupportedEncodingException e){
-            Log.e("UnsupportedEncoding", e.toString());
-        }
-        nfc_contents.setText("NFC Content: " + text);
-    }
-
-
-
-    private NdefRecord createRecord(String text) throws UnsupportedEncodingException {
-        String lang="en";
-        byte[] textBytes=text.getBytes();
-        byte[] langBytes = lang.getBytes("US-ASCII");
-        int langLength=textBytes.length;
-        int textLength=textBytes.length;
-        byte[] payload = new byte[1+langLength+textLength];
-
-        payload[0]=(byte) langLength;
-
-        System.arraycopy(langBytes, 0, payload, 1, langLength);
-        System.arraycopy(textBytes, 0, payload, 1+langLength, textLength);
-
-        NdefRecord recordNFC = new NdefRecord(NdefRecord.TNF_UNKNOWN, NdefRecord.RTD_TEXT, new byte[0], payload);
-
-        return recordNFC;
-    }
+    
 
     @Override
     protected void onNewIntent(Intent intent) {
         super.onNewIntent(intent);
-        //readfromIntent(intent);
-        if (NfcAdapter.ACTION_NDEF_DISCOVERED.equals(intent.getAction())) {
+        if (NfcAdapter.ACTION_NDEF_DISCOVERED.equals(intent.getAction()) || NfcAdapter.ACTION_TECH_DISCOVERED.equals(intent.getAction()) || NfcAdapter.ACTION_TAG_DISCOVERED.equals(intent.getAction())) {
             myTag=intent.getParcelableExtra(NfcAdapter.EXTRA_TAG);
+
+            if (isReading){
+                nfc_contents.setText(read(myTag));
+                isReading = false;
+            }
+            else if (isWriting){
+                write("test", myTag);
+                isWriting = false;
+            }
         }
-        if (isReading){
-            nfc_contents.setText(read(myTag));
-            isReading = false;
-        }
+
 
 
     }
