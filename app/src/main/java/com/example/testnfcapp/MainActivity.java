@@ -55,12 +55,14 @@ public class MainActivity extends AppCompatActivity {
         ActivateButton= findViewById(R.id.ActivatedButton);
         context =this;
 
+        //Writing button - device starts searching for a tag to write to
         ActivateButton.setOnClickListener(v -> {
             isWriting = true;
             isReading = false;
             Toast.makeText(context,"Waiting for tag", Toast.LENGTH_LONG).show();
         });
 
+        //Reading button - device starts searching for a tag to read
         Button readButton = findViewById(R.id.readNFCbutton);
 
         readButton.setOnClickListener(v -> {
@@ -77,6 +79,8 @@ public class MainActivity extends AppCompatActivity {
             Toast.makeText(this,"This device does not support NFC", Toast.LENGTH_SHORT).show();
             finish();
         }
+
+        //Gives priority to foreground application for NFC I/O
         pendingIntent = PendingIntent.getActivity(this,0,new Intent(this, getClass()).addFlags(Intent.FLAG_ACTIVITY_SINGLE_TOP),PendingIntent.FLAG_MUTABLE);
         IntentFilter tagDetected=new IntentFilter(NfcAdapter.ACTION_NDEF_DISCOVERED);
         IntentFilter emptyTagDetected=new IntentFilter(NfcAdapter.ACTION_TECH_DISCOVERED);
@@ -94,11 +98,13 @@ public class MainActivity extends AppCompatActivity {
 
     private void write(String text, Tag tag){
 
+        //Maximum storage
         if (text.length() > 144){
             Toast.makeText(this,"Too long", Toast.LENGTH_SHORT).show();
             return;
         }
 
+        //Appends spaces until String length is divisible by 4 - we must write to the tag in groups of 4 bytes
         StringBuilder textBuilder = new StringBuilder(text);
         for(int i = 0; i< textBuilder.length() % 4; i++){
             textBuilder.append(" ");
@@ -112,6 +118,7 @@ public class MainActivity extends AppCompatActivity {
         try {
             ultralight.connect();
             for (int i = 0; i < letters.length / 4; i++){
+                //Ugh
                 if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.N) {
                     ultralight.writePage(i+8, IntStream.range(i*4, i*4+3).map(a -> letters[a]).toString().getBytes());
                 }
@@ -161,6 +168,7 @@ public class MainActivity extends AppCompatActivity {
                 nfc_contents.setText(read(myTag));
                 isReading = false;
             }
+            //TODO: Remove hardcoded string
             else if (isWriting){
                 write("test", myTag);
                 isWriting = false;
