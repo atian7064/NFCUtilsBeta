@@ -13,6 +13,7 @@ import android.nfc.NfcAdapter;
 import android.nfc.Tag;
 import android.nfc.tech.MifareUltralight;
 import android.nfc.tech.Ndef;
+import android.os.Build;
 import android.os.Bundle;
 import android.os.Parcelable;
 import android.util.Log;
@@ -24,18 +25,13 @@ import java.io.IOException;
 import java.io.UnsupportedEncodingException;
 import java.nio.charset.Charset;
 import java.nio.charset.StandardCharsets;
+import java.util.stream.IntStream;
 
 public class MainActivity extends AppCompatActivity {
 
-    public static final String Error_Detected="No NFC Detected";
-    public static final String Write_Success="Text Written Successfully";
-    public static final String Write_Error="Error during writing, try again";
     private static final String TAG = MainActivity.class.getSimpleName();
-
     boolean isReading;
-
     boolean isWriting;
-
     NfcAdapter nfcAdapter;
     PendingIntent pendingIntent;
     IntentFilter writingTagFilters[];
@@ -97,10 +93,29 @@ public class MainActivity extends AppCompatActivity {
     }
 
     private void write(String text, Tag tag){
+
+        if (text.length() > 144){
+            Toast.makeText(this,"Too long", Toast.LENGTH_SHORT).show();
+            return;
+        }
+
+        StringBuilder textBuilder = new StringBuilder(text);
+        for(int i = 0; i< textBuilder.length() % 4; i++){
+            textBuilder.append(" ");
+        }
+        text = textBuilder.toString();
+
+
+        byte[] letters = text.getBytes(StandardCharsets.US_ASCII);
+
         MifareUltralight ultralight = MifareUltralight.get(tag);
         try {
             ultralight.connect();
-            ultralight.writePage(7, "mnop".getBytes(StandardCharsets.US_ASCII));
+            for (int i = 0; i < letters.length / 4; i++){
+                if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.N) {
+                    ultralight.writePage(i+8, IntStream.range(i*4, i*4+3).map(a -> letters[a]).toString().getBytes());
+                }
+            }
         } catch (IOException e) {
             Log.e(TAG, "IOException while writing MifareUltralight...", e);
         } finally {
@@ -134,7 +149,7 @@ public class MainActivity extends AppCompatActivity {
     }
 
 
-    
+
 
     @Override
     protected void onNewIntent(Intent intent) {
